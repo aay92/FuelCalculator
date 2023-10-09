@@ -6,31 +6,122 @@
 //
 
 import XCTest
+import Combine
 @testable import TipCalculator
 
 final class TipCalculatorTests: XCTestCase {
-
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+  ///sut - sestem under test
+    private var sut: CalculaterVM!
+    private var cancalllbe: Set<AnyCancellable>!
+    
+    private var logoViewSubject: PassthroughSubject<Void, Never>!
+    private var audioPlayerSubject: MockAudioPlayer!
+    
+    override func setUp() {
+        audioPlayerSubject = .init()
+        sut = .init(audioPlayerService: audioPlayerSubject)
+        logoViewSubject = .init()
+        cancalllbe = .init()
+        
+        super.setUp()
     }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    
+    override func tearDown() {
+        super.tearDown()
+        sut = nil
+        cancalllbe = nil
+        audioPlayerSubject = nil
+        logoViewSubject = nil
     }
-
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+    
+    func testResultWithoutTipFor1Person(){
+        //given
+        /// bill $100.0
+        /// no tip
+        /// 1 person
+        let bill:  Double = 100.0
+        let tip:   Tip = .none
+        let split: Int = 1
+        
+        let input = buildInput(bill: bill, tip: tip, split: split)
+        //when
+        let output = sut.transform(input: input)
+        //then
+        output.updateViewPublisher.sink { result in
+            XCTAssertEqual(result.amountPerPerson, 0)
+            XCTAssertEqual(result.totalBill, 100)
+            XCTAssertEqual(result.totalTill, 0)
+        }.store(in: &cancalllbe)
     }
-
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    
+    func testResultWithoutTipFor2Person(){
+        //given
+        /// bill $100.0
+        /// no tip
+        /// 1 person
+        let bill:  Double = 100.0
+        let tip:   Tip = .none
+        let split: Int = 2
+        
+        let input = buildInput(bill: bill, tip: tip, split: split)
+        //when
+        let output = sut.transform(input: input)
+        //then
+        output.updateViewPublisher.sink { result in
+            XCTAssertEqual(result.amountPerPerson, 0)
+            XCTAssertEqual(result.totalBill, 100)
+            XCTAssertEqual(result.totalTill, 0)
+        }.store(in: &cancalllbe)
     }
+    
+    func testResultWithTenPercentTipFor2Person(){
+        //given
+        /// bill $100.0
+        /// no tip
+        /// 1 person
+        let bill:  Double = 100.0
+        let tip:   Tip = .tenPercent
+        let split: Int = 2
+        
+        let input = buildInput(bill: bill, tip: tip, split: split)
+        //when
+        let output = sut.transform(input: input)
+        //then
+        output.updateViewPublisher.sink { result in
+            XCTAssertEqual(result.amountPerPerson, 5)
+            XCTAssertEqual(result.totalBill, 110)
+            XCTAssertEqual(result.totalTill, 10)
+        }.store(in: &cancalllbe)
+    }
+    
+    func testSoundPlayedAndCalculatorResultViewLogoTap(){
+        //given
+        let input = buildInput(bill: 100, tip: .tenPercent, split: 2)
+        let output = sut.transform(input: input)
+        let expectation1 = XCTestExpectation(description: "Reset calculator")
+        let expectation2 = audioPlayerSubject.expectation
+        //when
+        output.resetCalculaterPublisher.sink { _ in
+            expectation1.fulfill()
+        }.store(in: &cancalllbe)
+        //then
+        logoViewSubject.send()
+        wait(for: [expectation1, expectation2], timeout: 1.0)
+    }
+    
+    private func buildInput(bill: Double, tip: Tip, split: Int)-> CalculaterVM.Input {
+        return .init(
+            billPublisher: Just(bill).eraseToAnyPublisher(),
+            tipPublisher: Just(tip).eraseToAnyPublisher(),
+            splitPublisher: Just(split).eraseToAnyPublisher(),
+            logoViewTapPublisher: logoViewSubject.eraseToAnyPublisher())
+    }
+}
 
+
+class MockAudioPlayer: AudioPlayerService {
+    let expectation = XCTestExpectation(description: "playSound")
+    func playSound() {
+        expectation.fulfill()
+    }
 }

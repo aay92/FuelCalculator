@@ -13,7 +13,7 @@ struct LabelFacrory {
                       backgruondColor:
                       UIColor = .clear,
                       textColor: UIColor = ThemeColor.text,
-                      textAligment: NSTextAlignment = .center) -> UILabel {
+                      textAligment: NSTextAlignment = .center, lineOfNumber: Int = 0) -> UILabel {
         
         let label = UILabel()
         label.text = text
@@ -21,6 +21,7 @@ struct LabelFacrory {
         label.backgroundColor = backgruondColor
         label.textColor = textColor
         label.textAlignment = textAligment
+        label.numberOfLines = lineOfNumber
         return label
     }
 }
